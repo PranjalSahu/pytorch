@@ -85,13 +85,13 @@ class LBFGS(Optimizer):
         assert len(self.param_groups) == 1
 
         group = self.param_groups[0]
-        lr = group['lr']
+        lr       = group['lr']
         max_iter = group['max_iter']
         max_eval = group['max_eval']
-        tolerance_grad = group['tolerance_grad']
+        tolerance_grad   = group['tolerance_grad']
         tolerance_change = group['tolerance_change']
-        line_search_fn = group['line_search_fn']
-        history_size = group['history_size']
+        line_search_fn   = group['line_search_fn']
+        history_size     = group['history_size']
 
         # NOTE: LBFGS has only global state, but we register it as state for
         # the first param, because this helps with casting in load_state_dict
@@ -105,7 +105,7 @@ class LBFGS(Optimizer):
         current_evals = 1
         state['func_evals'] += 1
 
-        flat_grad = self._gather_flat_grad()
+        flat_grad    = self._gather_flat_grad()
         abs_grad_sum = flat_grad.abs().sum()
 
         if abs_grad_sum <= tolerance_grad:
@@ -116,9 +116,9 @@ class LBFGS(Optimizer):
         t = state.get('t')
         old_dirs = state.get('old_dirs')
         old_stps = state.get('old_stps')
-        H_diag = state.get('H_diag')
+        H_diag   = state.get('H_diag')
         prev_flat_grad = state.get('prev_flat_grad')
-        prev_loss = state.get('prev_loss')
+        prev_loss      = state.get('prev_loss')
 
         n_iter = 0
         # optimize for a max of max_iter iterations
@@ -131,15 +131,16 @@ class LBFGS(Optimizer):
             # compute gradient descent direction
             ############################################################
             if state['n_iter'] == 1:
-                d = flat_grad.neg()
+                d        = flat_grad.neg()
                 old_dirs = []
                 old_stps = []
-                H_diag = 1
+                H_diag   = 1
             else:
                 # do lbfgs update (update memory)
-                y = flat_grad.sub(prev_flat_grad)
-                s = d.mul(t)
+                y  = flat_grad.sub(prev_flat_grad)
+                s  = d.mul(t)
                 ys = y.dot(s)  # y*s
+                
                 if ys > 1e-10:
                     # updating memory
                     if len(old_dirs) == history_size:
@@ -153,6 +154,7 @@ class LBFGS(Optimizer):
 
                     # update scale of initial Hessian approximation
                     H_diag = ys / y.dot(y)  # (y*y)
+                    #H_0_k  = y_k *s_k / y_k * y_k
 
                 # compute the approximate (L-BFGS) inverse Hessian
                 # multiplied by the gradient
@@ -164,10 +166,14 @@ class LBFGS(Optimizer):
                 ro = state['ro']
                 al = state['al']
 
+                # Calculating ro = 1 / yk * sk
                 for i in range(num_old):
                     ro[i] = 1. / old_dirs[i].dot(old_stps[i])
 
                 # iteration in L-BFGS loop collapsed to use just one buffer
+
+                # First loop of wikipedia algo page
+                # al is alpha variable
                 q = flat_grad.neg()
                 for i in range(num_old - 1, -1, -1):
                     al[i] = old_stps[i].dot(q) * ro[i]
