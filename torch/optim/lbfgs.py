@@ -45,7 +45,7 @@ class LBFGS(Optimizer):
         if len(self.param_groups) != 1:
             raise ValueError("LBFGS doesn't support per-parameter options "
                              "(parameter groups)")
-
+        self.current_step = 0
         self._params = self.param_groups[0]['params']
         self._numel_cache = None
 
@@ -68,6 +68,7 @@ class LBFGS(Optimizer):
 
     def _add_grad(self, step_size, update):
         offset = 0
+        print('Pranjal: update shape is ', update.shape)
         for p in self._params:
             numel = p.numel()
             # view as to avoid deprecated pointwise semantics
@@ -124,11 +125,17 @@ class LBFGS(Optimizer):
             return loss
         
         #Pranjal: Use previous iteration calculated d and t and update the parameters
+        if self.current_step == 0:
+            d = torch.mul(flat_grad_old, 0)
+            t = lr
+        
+        self.current_step += 1 
         self._add_grad(t, d)
+
         #Pranjal: Get the gradients with previous epsilon
         orig_loss = float(closure())
         flat_grad = self._gather_flat_grad()
-
+        loss = float(orig_loss)
 
         n_iter = 0
         # optimize for a max of max_iter iterations
