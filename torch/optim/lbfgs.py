@@ -110,28 +110,24 @@ class LBFGS(Optimizer):
         prev_loss      = state.get('prev_loss')
 
 
-        #Pranjal moved this code here
+        #Pranjal: moved this code here
         #Pranjal: get gradient for current epsilon with previous parameters first
-        loss_old = float(closure())
-        
         current_evals        = 1
         state['func_evals'] += 1
         
         #Pranjal flat_grad_old contains the gradient for previous x with current epsilon
+        loss_old      = float(closure())
         flat_grad_old = self._gather_flat_grad()
         abs_grad_sum  = flat_grad_old.abs().sum()
-        
+
         if abs_grad_sum <= tolerance_grad:
             return loss
         
-        
-        orig_loss = closure()
-        loss      = float(orig_loss)
-
-        
-
-        #self._add_grad(t, d)
-
+        #Pranjal: Use previous iteration calculated d and t and update the parameters
+        self._add_grad(t, d)
+        #Pranjal: Get the gradients with current epsilon
+        orig_loss = float(closure())
+        flat_grad = self._gather_flat_grad()
 
 
         n_iter = 0
@@ -151,7 +147,7 @@ class LBFGS(Optimizer):
                 H_diag   = 1
             else:
                 # do lbfgs update (update memory)
-                y  = flat_grad.sub(prev_flat_grad)
+                y  = flat_grad.sub(flat_grad_old)
                 s  = d.mul(t)
                 ys = y.dot(s)  # y*s
                 
@@ -167,6 +163,7 @@ class LBFGS(Optimizer):
                     old_stps.append(s)
 
                     # update scale of initial Hessian approximation
+                    #Pranjal: need to add a constant delta here for taking max element wise probably ????
                     H_diag = ys / y.dot(y)  # (y*y)
                     #H_0_k  = y_k *s_k / y_k * y_k
 
@@ -228,16 +225,15 @@ class LBFGS(Optimizer):
                 raise RuntimeError("line search function is not supported yet")
             else:
                 # no line search, simply move with fixed-step
-                state['prev_direction_to_apply'] = d
-                state['prev_step_to_apply']      = t
+                #state['prev_direction_to_apply'] = d
+                #state['prev_step_to_apply']      = t
 
                 #self._add_grad(t, d)
                 if n_iter != max_iter:
                     # re-evaluate function only if not in last iteration
                     # the reason we do this: in a stochastic setting,
                     # no use to re-evaluate that function here
-                    loss, g_k_minus_1   = closure()
-                    loss = float(loss)
+                    loss   = float(closure())
                     flat_grad     = self._gather_flat_grad()
                     abs_grad_sum  = flat_grad.abs().sum()
                     ls_func_evals = 1
@@ -271,8 +267,8 @@ class LBFGS(Optimizer):
         state['t'] = t
         state['old_dirs'] = old_dirs
         state['old_stps'] = old_stps
-        state['H_diag'] = H_diag
+        state['H_diag']   = H_diag
         state['prev_flat_grad'] = prev_flat_grad
-        state['prev_loss'] = prev_loss
+        state['prev_loss']      = prev_loss
 
         return orig_loss
