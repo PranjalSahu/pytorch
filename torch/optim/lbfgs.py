@@ -178,7 +178,7 @@ class LBFGS(Optimizer):
                     old_dirs.append(y_bar)
                     old_stps.append(s)
 
-                
+
                 # compute the approximate (L-BFGS) inverse Hessian
                 # multiplied by the gradient
                 num_old = len(old_dirs)
@@ -199,12 +199,14 @@ class LBFGS(Optimizer):
 
                 # First loop of wikipedia algo page
                 # al is alpha variable
-                
+                # Pranjal: the loop which calculates mu in the paper
+
                 q = flat_grad.neg()
                 for i in range(num_old - 1, -1, -1):
                     al[i] = old_stps[i].dot(q) * ro[i]
                     q.add_(-al[i], old_dirs[i])
 
+                
                 # multiply by initial Hessian
                 # r/d is the final direction
                 # Second loop of wikipedia algo page
