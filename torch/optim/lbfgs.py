@@ -157,25 +157,28 @@ class LBFGS(Optimizer):
                         # shift history by one (limited-memory)
                         old_dirs.pop(0)
                         old_stps.pop(0)
-
-                    # store new direction/step
-                    old_dirs.append(y)
-                    old_stps.append(s)
-
+                    
                     # update scale of initial Hessian approximation
                     # Pranjal: need to add a constant delta here for taking max element wise probably ????
-                    H_diag = ys / y.dot(y)  # (y*y)
-                    #H_0_k  = y_k *s_k / y_k * y_k
-                H_diag_inverse = 1/H_diag
+                    H_diag         = ys / y.dot(y)  # (y*y)
+                    H_diag_inverse = 1/H_diag
 
-                #Pranjal: adding the code fo calculating value of theta
-                temp_value = s.dot(H_diag_inverse*s)
-                if y.dot(s) < 0.25*temp_value:
-                    theta = (0.75*temp_value)/(temp_value - y.dot(s))
-                else:
-                    theta = 1
+                    # Pranjal: adding the code fo calculating value of theta
+                    temp_value = s.dot(H_diag_inverse*s)
+                    if y.dot(s) < 0.25*temp_value:
+                        theta = (0.75*temp_value)/(temp_value - y.dot(s))
+                    else:
+                        theta = 1
 
-                y_bar = 
+                    # Pranjal: code for calculating value of y_bar using value of theta
+                    y_bar = theta*y - (1-theta)*(H_diag_inverse*s)
+
+                    # store new direction/step
+                    # Pranjal: change of code here to use damped algorithm which uses y_bar instead of y
+                    old_dirs.append(y_bar)
+                    old_stps.append(s)
+
+                
                 # compute the approximate (L-BFGS) inverse Hessian
                 # multiplied by the gradient
                 num_old = len(old_dirs)
