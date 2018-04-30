@@ -115,7 +115,7 @@ class LBFGS(Optimizer):
         current_evals        = 1
         state['func_evals'] += 1
         
-        #Pranjal flat_grad_old contains the gradient for previous x with current epsilon
+        #Pranjal flat_grad_old contains the gradient for previous x with previous epsilon
         loss_old      = float(closure())
         flat_grad_old = self._gather_flat_grad()
         abs_grad_sum  = flat_grad_old.abs().sum()
@@ -125,7 +125,7 @@ class LBFGS(Optimizer):
         
         #Pranjal: Use previous iteration calculated d and t and update the parameters
         self._add_grad(t, d)
-        #Pranjal: Get the gradients with current epsilon
+        #Pranjal: Get the gradients with previous epsilon
         orig_loss = float(closure())
         flat_grad = self._gather_flat_grad()
 
@@ -161,9 +161,9 @@ class LBFGS(Optimizer):
                     # update scale of initial Hessian approximation
                     # Pranjal: need to add a constant delta here for taking max element wise probably ????
                     H_diag         = ys / y.dot(y)  # (y*y)
-                    H_diag_inverse = 1/H_diag
+                    H_diag_inverse = torch.div(1, H_diag)  #Pranjal: search it in pytorch
 
-                    # Pranjal: adding the code fo calculating value of theta
+                    # Pranjal: adding the code for calculating value of theta
                     temp_value = s.dot(H_diag_inverse*s)
                     if y.dot(s) < 0.25*temp_value:
                         theta = (0.75*temp_value)/(temp_value - y.dot(s))
@@ -206,7 +206,7 @@ class LBFGS(Optimizer):
                     al[i] = old_stps[i].dot(q) * ro[i]
                     q.add_(-al[i], old_dirs[i])
 
-                
+
                 # multiply by initial Hessian
                 # r/d is the final direction
                 # Second loop of wikipedia algo page
