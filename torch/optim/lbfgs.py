@@ -148,7 +148,7 @@ class LBFGS(Optimizer):
             else:
                 # do lbfgs update (update memory)
                 y  = flat_grad.sub(flat_grad_old)
-                s  = d.mul(t)
+                s  = d.mul(t)  # Pranjal: this is same as (x_k  -  x_k-1)
                 ys = y.dot(s)  # y*s
                 
                 if ys > 1e-10:
@@ -163,10 +163,19 @@ class LBFGS(Optimizer):
                     old_stps.append(s)
 
                     # update scale of initial Hessian approximation
-                    #Pranjal: need to add a constant delta here for taking max element wise probably ????
+                    # Pranjal: need to add a constant delta here for taking max element wise probably ????
                     H_diag = ys / y.dot(y)  # (y*y)
                     #H_0_k  = y_k *s_k / y_k * y_k
+                H_diag_inverse = 1/H_diag
 
+                #Pranjal: adding the code fo calculating value of theta
+                temp_value = s.dot(H_diag_inverse*s)
+                if y.dot(s) < 0.25*temp_value:
+                    theta = (0.75*temp_value)/(temp_value - y.dot(s))
+                else:
+                    theta = 1
+
+                y_bar = 
                 # compute the approximate (L-BFGS) inverse Hessian
                 # multiplied by the gradient
                 num_old = len(old_dirs)
@@ -178,6 +187,8 @@ class LBFGS(Optimizer):
                 al = state['al']
 
                 # Calculating ro = 1 / yk * sk
+                # Pranjal: make old_dirs as y_k_bar as shown in the paper
+
                 for i in range(num_old):
                     ro[i] = 1. / old_dirs[i].dot(old_stps[i])
 
