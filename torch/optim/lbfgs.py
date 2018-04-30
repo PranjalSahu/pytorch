@@ -84,7 +84,7 @@ class LBFGS(Optimizer):
         """
         assert len(self.param_groups) == 1
 
-        group = self.param_groups[0]
+        group    = self.param_groups[0]
         lr       = group['lr']
         max_iter = group['max_iter']
         max_eval = group['max_eval']
@@ -99,18 +99,7 @@ class LBFGS(Optimizer):
         state.setdefault('func_evals', 0)
         state.setdefault('n_iter', 0)
 
-        # evaluate initial f(x) and df/dx
-        orig_loss = closure()
-        loss = float(orig_loss)
-        current_evals = 1
-        state['func_evals'] += 1
-
-        flat_grad    = self._gather_flat_grad()
-        abs_grad_sum = flat_grad.abs().sum()
-
-        if abs_grad_sum <= tolerance_grad:
-            return loss
-
+        
         # tensors cached in state (for tracing)
         d = state.get('d')
         t = state.get('t')
@@ -119,6 +108,31 @@ class LBFGS(Optimizer):
         H_diag   = state.get('H_diag')
         prev_flat_grad = state.get('prev_flat_grad')
         prev_loss      = state.get('prev_loss')
+
+
+        #Pranjal moved this code here
+        #Pranjal: get gradient for current epsilon with previous parameters first
+        loss_old = float(closure())
+        
+        current_evals        = 1
+        state['func_evals'] += 1
+        
+        #Pranjal flat_grad_old contains the gradient for previous x with current epsilon
+        flat_grad_old = self._gather_flat_grad()
+        abs_grad_sum  = flat_grad_old.abs().sum()
+        
+        if abs_grad_sum <= tolerance_grad:
+            return loss
+        
+        
+        orig_loss = closure()
+        loss      = float(orig_loss)
+
+        
+
+        #self._add_grad(t, d)
+
+
 
         n_iter = 0
         # optimize for a max of max_iter iterations
@@ -174,6 +188,7 @@ class LBFGS(Optimizer):
 
                 # First loop of wikipedia algo page
                 # al is alpha variable
+                
                 q = flat_grad.neg()
                 for i in range(num_old - 1, -1, -1):
                     al[i] = old_stps[i].dot(q) * ro[i]
@@ -181,6 +196,8 @@ class LBFGS(Optimizer):
 
                 # multiply by initial Hessian
                 # r/d is the final direction
+                # Second loop of wikipedia algo page
+
                 d = r = torch.mul(q, H_diag)
                 for i in range(num_old):
                     be_i = old_dirs[i].dot(r) * ro[i]
@@ -211,18 +228,22 @@ class LBFGS(Optimizer):
                 raise RuntimeError("line search function is not supported yet")
             else:
                 # no line search, simply move with fixed-step
-                self._add_grad(t, d)
+                state['prev_direction_to_apply'] = d
+                state['prev_step_to_apply']      = t
+
+                #self._add_grad(t, d)
                 if n_iter != max_iter:
                     # re-evaluate function only if not in last iteration
                     # the reason we do this: in a stochastic setting,
                     # no use to re-evaluate that function here
-                    loss = float(closure())
-                    flat_grad = self._gather_flat_grad()
-                    abs_grad_sum = flat_grad.abs().sum()
+                    loss, g_k_minus_1   = closure()
+                    loss = float(loss)
+                    flat_grad     = self._gather_flat_grad()
+                    abs_grad_sum  = flat_grad.abs().sum()
                     ls_func_evals = 1
 
             # update func eval
-            current_evals += ls_func_evals
+            current_evals       += ls_func_evals
             state['func_evals'] += ls_func_evals
 
             ############################################################
