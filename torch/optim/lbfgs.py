@@ -168,7 +168,7 @@ class LBFGS(Optimizer):
                     # update scale of initial Hessian approximation
                     # Pranjal: need to add a constant delta here for taking max element wise probably ????
                     delta          = torch.tensor([0.001], dtype=torch.double)
-                    temp_delta     = torch.max(ys / y.dot(y), delta)
+                    temp_delta     = torch.max(y.dot(y)/ys, delta)
                     H_diag         = temp_delta.pow(-1)
                     H_diag_inverse = torch.ones_like(y)*temp_delta
 
