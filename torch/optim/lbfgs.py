@@ -168,9 +168,18 @@ class LBFGS(Optimizer):
                     # update scale of initial Hessian approximation
                     # Pranjal: need to add a constant delta here for taking max element wise probably ????
                     delta          = torch.tensor([0.001], dtype=torch.double)
-                    temp_delta     = torch.max(y.dot(y)/ys, delta)
-                    H_diag         = temp_delta.pow(-1)
-                    H_diag_inverse = torch.ones_like(y)*temp_delta
+                    ##temp_delta     = torch.max(ys/ y.dot(y), delta)
+                    temp_delta = ys / y.dot(y)
+
+                    #H_diag         = temp_delta.pow(-1)
+                    #H_diag_inverse = torch.ones_like(y)*temp_delta
+
+
+                    ##gamma     = torch.max(y.dot(y) / ys, delta)
+                    gamma = y.dot(y)/ys;
+                    H_diag    = torch.ones_like(y) / gamma;
+                    H_diag_inverse = torch.div(torch.ones_like(y), H_diag);
+
 
                     # Pranjal: adding the code for calculating value of theta
                     temp_value = s.dot(torch.mul(H_diag_inverse, s))
@@ -180,7 +189,7 @@ class LBFGS(Optimizer):
                         theta = 1
 
                     # Pranjal: code for calculating value of y_bar using value of theta
-                    y_bar = theta*y - (1-theta)*(torch.mul(H_diag_inverse, s))
+                    y_bar = theta*y + (1-theta)*(torch.mul(H_diag_inverse, s))
 
                     # store new direction/step
                     # Pranjal: change of code here to use damped algorithm which uses y_bar instead of y
