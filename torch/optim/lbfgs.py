@@ -68,7 +68,7 @@ class LBFGS(Optimizer):
 
     def _add_grad(self, step_size, update):
         offset = 0
-        print('Pranjal: update shape is ', update.shape)
+        #print('Pranjal: update shape is ', update.shape)
         for p in self._params:
             numel = p.numel()
             # view as to avoid deprecated pointwise semantics
@@ -151,7 +151,7 @@ class LBFGS(Optimizer):
                 d        = flat_grad.neg()
                 old_dirs = []
                 old_stps = []
-                H_diag   = 1
+                H_diag   = 0.001
             else:
                 # do lbfgs update (update memory)
                 y  = flat_grad.sub(flat_grad_old)
@@ -167,18 +167,20 @@ class LBFGS(Optimizer):
                     
                     # update scale of initial Hessian approximation
                     # Pranjal: need to add a constant delta here for taking max element wise probably ????
-                    H_diag         = ys / y.dot(y)  # (y*y)
-                    H_diag_inverse = H_diag.pow(-1)  #Pranjal: search it in pytorch
+                    delta          = torch.tensor([0.001], dtype=torch.double)
+                    temp_delta     = torch.max(ys / y.dot(y), delta)
+                    H_diag         = temp_delta.pow(-1)
+                    H_diag_inverse = torch.ones_like(y)*temp_delta
 
                     # Pranjal: adding the code for calculating value of theta
-                    temp_value = s.dot(H_diag_inverse*s)
+                    temp_value = s.dot(torch.mul(H_diag_inverse, s))
                     if y.dot(s) < 0.25*temp_value:
                         theta = (0.75*temp_value)/(temp_value - y.dot(s))
                     else:
                         theta = 1
 
                     # Pranjal: code for calculating value of y_bar using value of theta
-                    y_bar = theta*y - (1-theta)*(H_diag_inverse*s)
+                    y_bar = theta*y - (1-theta)*(torch.mul(H_diag_inverse, s))
 
                     # store new direction/step
                     # Pranjal: change of code here to use damped algorithm which uses y_bar instead of y
