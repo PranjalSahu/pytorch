@@ -126,8 +126,15 @@ class LBFGS(Optimizer):
         
         #Pranjal: Use previous iteration calculated d and t and update the parameters
         if self.current_step == 0:
-            d = torch.mul(flat_grad_old, 0)
+            loss = float(closure())
+            temp_grad = self._gather_flat_grad() 
+            d = temp_grad.neg()
             t = lr
+            #self._add_grad(t, d)
+            self.current_step += 1
+            state['d'] = d
+            state['t'] = t
+            return loss
 
         self.current_step += 1 
         self._add_grad(t, d)
