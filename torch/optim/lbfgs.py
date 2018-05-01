@@ -128,7 +128,7 @@ class LBFGS(Optimizer):
         if self.current_step == 0:
             d = torch.mul(flat_grad_old, 0)
             t = lr
-        
+
         self.current_step += 1 
         self._add_grad(t, d)
 
@@ -168,7 +168,7 @@ class LBFGS(Optimizer):
                     # update scale of initial Hessian approximation
                     # Pranjal: need to add a constant delta here for taking max element wise probably ????
                     H_diag         = ys / y.dot(y)  # (y*y)
-                    H_diag_inverse = torch.div(1, H_diag)  #Pranjal: search it in pytorch
+                    H_diag_inverse = H_diag.pow(-1)  #Pranjal: search it in pytorch
 
                     # Pranjal: adding the code for calculating value of theta
                     temp_value = s.dot(H_diag_inverse*s)
