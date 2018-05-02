@@ -1,9 +1,9 @@
 import torch
 from functools import reduce
-from .optimizer import Optimizer
+from torch.optim.optimizer import Optimizer
 
 
-class LBFGS(Optimizer):
+class LBFGSNEW(Optimizer):
     """Implements L-BFGS algorithm.
 
     .. warning::
@@ -40,8 +40,10 @@ class LBFGS(Optimizer):
         defaults = dict(lr=lr, max_iter=max_iter, max_eval=max_eval,
                         tolerance_grad=tolerance_grad, tolerance_change=tolerance_change,
                         history_size=history_size, line_search_fn=line_search_fn)
-        super(LBFGS, self).__init__(params, defaults)
-
+        super(LBFGSNEW, self).__init__(params, defaults)
+        
+        self.cuda_device =  torch.device('cuda:0')
+        
         if len(self.param_groups) != 1:
             raise ValueError("LBFGS doesn't support per-parameter options "
                              "(parameter groups)")
@@ -117,7 +119,8 @@ class LBFGS(Optimizer):
         state['func_evals'] += 1
         
         #Pranjal flat_grad_old contains the gradient for previous x with previous epsilon
-        loss_old      = float(closure())
+        loss      = float(closure())
+        orig_loss = loss
         flat_grad_old = self._gather_flat_grad()
         abs_grad_sum  = flat_grad_old.abs().sum()
 
@@ -125,34 +128,40 @@ class LBFGS(Optimizer):
             return loss
         
         #Pranjal: Use previous iteration calculated d and t and update the parameters
-        if self.current_step == 0:
-            ########################################
-            # This is without SGD
-            '''
-            #d = torch.mul(flat_grad_old, 0)
-            #t = lr
-            '''
+        # if self.current_step == 0:
+        #     ########################################
+        #     # This is without SGD
+        #     '''
+        #     #d = torch.mul(flat_grad_old, 0)
+        #     #t = lr
+        #     '''
             
-            #This is with SGD
+        #     #This is with SGD
             
-            loss = float(closure())
-            temp_grad = self._gather_flat_grad() 
-            d = temp_grad.neg()
-            t = lr
-            #self._add_grad(t, d)
-            self.current_step += 1
-            state['d'] = d
-            state['t'] = t
-            print('Pranjal: First step with SGD is done')
-            return loss
+        #     loss = float(closure())
+        #     temp_grad = self._gather_flat_grad() 
+        #     d = temp_grad.neg()
+        #     t = min(1., 1. / abs_grad_sum) * lr
+        #     #self._add_grad(t, d)
+        #     self.current_step += 1
+        #     state['d'] = d
+        #     state['t'] = t
+        #     H_diag = 1;
+        #     state['n_iter'] += 1;
+        #     old_dirs = []
+        #     old_stps = []
+        #     print('Pranjal: First step with SGD is done')
+        #     return loss
 
-        self.current_step += 1 
-        self._add_grad(t, d)
+        # self.current_step += 1 
+        # self._add_grad(t, d)
 
         #Pranjal: Get the gradients with previous epsilon
-        orig_loss = float(closure())
-        flat_grad = self._gather_flat_grad()
-        loss = float(orig_loss)
+        if state['n_iter'] > 1:
+            self._add_grad(t, d)
+            orig_loss = float(closure())
+            flat_grad = self._gather_flat_grad()
+            loss = float(orig_loss)
 
         n_iter = 0
         # optimize for a max of max_iter iterations
@@ -165,10 +174,12 @@ class LBFGS(Optimizer):
             # compute gradient descent direction
             ############################################################
             if state['n_iter'] == 1:
+                flat_grad = self._gather_flat_grad()
                 d        = flat_grad.neg()
                 old_dirs = []
                 old_stps = []
-                H_diag   = 0.001
+                H_diag   = 1
+                print('Pranjal: First step with SGD is done')
             else:
                 # do lbfgs update (update memory)
                 y  = flat_grad.sub(flat_grad_old)
@@ -184,17 +195,19 @@ class LBFGS(Optimizer):
                     
                     # update scale of initial Hessian approximation
                     # Pranjal: need to add a constant delta here for taking max element wise probably ????
-                    delta          = torch.tensor([0.001], dtype=torch.double)
-                    ##temp_delta     = torch.max(ys/ y.dot(y), delta)
-                    temp_delta = ys / y.dot(y)
+                    delta          = torch.tensor([1], dtype=torch.float, device=self.cuda_device)
+                    #temp_delta     = torch.max(ys/ y.dot(y), delta)
+                    #temp_delta = ys / y.dot(y)
 
                     #H_diag         = temp_delta.pow(-1)
                     #H_diag_inverse = torch.ones_like(y)*temp_delta
 
 
-                    ##gamma     = torch.max(y.dot(y) / ys, delta)
-                    gamma = y.dot(y)/ys;
-                    H_diag    = torch.ones_like(y) / gamma;
+                    gamma     = torch.max(y.dot(y) / ys, delta)
+                    #gamma = y.dot(y)/ys;
+                    #H_diag    = torch.ones_like(y) / gamma;
+                    H_diag     = 1 / gamma;
+                    print ('VuVu - ', float(y.dot(y)), float(ys));
                     H_diag_inverse = torch.div(torch.ones_like(y), H_diag);
 
 
@@ -250,6 +263,7 @@ class LBFGS(Optimizer):
                 for i in range(num_old):
                     be_i = old_dirs[i].dot(r) * ro[i]
                     r.add_(al[i] - be_i, old_stps[i])
+                print('Pranjal: Inside the main code')
 
             if prev_flat_grad is None:
                 prev_flat_grad = flat_grad.clone()
@@ -268,7 +282,8 @@ class LBFGS(Optimizer):
 
             # directional derivative
             gtd = flat_grad.dot(d)  # g * d
-
+            print('Pranjal Debug values: ', float(flat_grad.abs().sum()), float(d.abs().sum()), float(gtd), float(H_diag))
+            
             # optional line search: user function
             ls_func_evals = 0
             if line_search_fn is not None:
@@ -297,21 +312,27 @@ class LBFGS(Optimizer):
             # check conditions
             ############################################################
             if n_iter == max_iter:
+                print('Pranjal n_iter break')
                 break
 
             if current_evals >= max_eval:
+                print('Pranjal current_evals break') 
                 break
 
             if abs_grad_sum <= tolerance_grad:
+                print('Pranjal abs_grad_sum break')
                 break
 
             if gtd > -tolerance_change:
+                print('Pranjal gtd break')
                 break
 
             if d.mul(t).abs_().sum() <= tolerance_change:
+                print('Pranjal d mul abs break')
                 break
 
             if abs(loss - prev_loss) < tolerance_change:
+                print('Pranjal loss prev_loss break') 
                 break
 
         state['d'] = d
